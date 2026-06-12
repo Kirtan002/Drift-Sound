@@ -1,37 +1,34 @@
-import { Audio } from 'expo-av'
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio'
 import { soundAssets } from './soundAssets'
 import { cloudSoundManager } from './CloudSoundManager'
 
-type SoundInstance = Audio.Sound
-
 class AudioEngineClass {
-  private sounds: Map<string, SoundInstance> = new Map()
+  private players: Map<string, any> = new Map()
   private masterVolume: number = 1
   private initialized: boolean = false
 
   async initialize() {
     if (this.initialized) return
-    await Audio.setAudioModeAsync({
-      staysActiveInBackground: true,
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
     })
     this.initialized = true
   }
 
   async loadSound(id: string, file: string): Promise<boolean> {
-    if (this.sounds.has(id)) return true
+    if (this.players.has(id)) return true
 
     const filename = file.endsWith('.mp3') ? file : file + '.mp3'
     const asset = soundAssets[filename]
 
     if (asset) {
       try {
-        const { sound } = await Audio.Sound.createAsync(
-          asset,
-          { isLooping: true, shouldPlay: false, volume: 0 }
-        )
-        this.sounds.set(id, sound)
+        const player = createAudioPlayer(asset)
+        player.loop = true
+        player.volume = 0
+        this.players.set(id, player)
         return true
       } catch {
         return false
@@ -42,11 +39,10 @@ class AudioEngineClass {
     if (!localPath) return false
 
     try {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: localPath },
-        { isLooping: true, shouldPlay: false, volume: 0 }
-      )
-      this.sounds.set(id, sound)
+      const player = createAudioPlayer({ uri: localPath })
+      player.loop = true
+      player.volume = 0
+      this.players.set(id, player)
       return true
     } catch {
       return false
@@ -54,10 +50,10 @@ class AudioEngineClass {
   }
 
   async playSound(id: string): Promise<boolean> {
-    const sound = this.sounds.get(id)
-    if (!sound) return false
+    const player = this.players.get(id)
+    if (!player) return false
     try {
-      await sound.playAsync()
+      player.play()
       return true
     } catch {
       return false
@@ -65,10 +61,10 @@ class AudioEngineClass {
   }
 
   async stopSound(id: string): Promise<boolean> {
-    const sound = this.sounds.get(id)
-    if (!sound) return false
+    const player = this.players.get(id)
+    if (!player) return false
     try {
-      await sound.stopAsync()
+      player.pause()
       return true
     } catch {
       return false
@@ -76,11 +72,11 @@ class AudioEngineClass {
   }
 
   async unloadSound(id: string): Promise<boolean> {
-    const sound = this.sounds.get(id)
-    if (!sound) return false
+    const player = this.players.get(id)
+    if (!player) return false
     try {
-      await sound.unloadAsync()
-      this.sounds.delete(id)
+      player.remove()
+      this.players.delete(id)
       return true
     } catch {
       return false
@@ -88,10 +84,10 @@ class AudioEngineClass {
   }
 
   async setVolume(id: string, volume: number): Promise<boolean> {
-    const sound = this.sounds.get(id)
-    if (!sound) return false
+    const player = this.players.get(id)
+    if (!player) return false
     try {
-      await sound.setVolumeAsync(volume * this.masterVolume)
+      player.volume = volume * this.masterVolume
       return true
     } catch {
       return false
@@ -101,7 +97,7 @@ class AudioEngineClass {
   async setMasterVolume(volume: number) {
     this.masterVolume = Math.max(0, Math.min(1, volume))
     const promises: Promise<boolean>[] = []
-    this.sounds.forEach((_, id) => {
+    this.players.forEach((_, id) => {
       promises.push(this.setVolume(id, 1))
     })
     await Promise.all(promises)
@@ -113,8 +109,8 @@ class AudioEngineClass {
     to: number,
     durationMs: number
   ): Promise<void> {
-    const sound = this.sounds.get(id)
-    if (!sound) return
+    const player = this.players.get(id)
+    if (!player) return
 
     const steps = Math.min(40, Math.max(10, Math.floor(durationMs / 50)))
     const intervalMs = durationMs / steps
@@ -135,7 +131,7 @@ class AudioEngineClass {
       volume = Math.max(0, Math.min(1, volume)) * this.masterVolume
 
       try {
-        await sound.setVolumeAsync(volume)
+        player.volume = volume
       } catch {
         return
       }
@@ -147,53 +143,45 @@ class AudioEngineClass {
   }
 
   async pauseAll() {
-    const promises: Promise<void>[] = []
-    this.sounds.forEach(async (sound) => {
+    this.players.forEach((player) => {
       try {
-        promises.push(sound.pauseAsync().then(() => {}))
+        player.pause()
       } catch {}
     })
-    await Promise.all(promises)
   }
 
   async resumeAll() {
-    const promises: Promise<void>[] = []
-    this.sounds.forEach(async (sound) => {
+    this.players.forEach((player) => {
       try {
-        promises.push(sound.playAsync().then(() => {}))
+        player.play()
       } catch {}
     })
-    await Promise.all(promises)
   }
 
   async stopAll() {
-    const promises: Promise<void>[] = []
-    this.sounds.forEach(async (sound) => {
+    this.players.forEach((player) => {
       try {
-        promises.push(sound.stopAsync().then(() => {}))
+        player.pause()
       } catch {}
     })
-    await Promise.all(promises)
   }
 
   async unloadAll() {
     await this.stopAll()
-    const promises: Promise<void>[] = []
-    this.sounds.forEach(async (sound) => {
+    this.players.forEach((player) => {
       try {
-        promises.push(sound.unloadAsync().then(() => {}))
+        player.remove()
       } catch {}
     })
-    await Promise.all(promises)
-    this.sounds.clear()
+    this.players.clear()
   }
 
   hasSound(id: string): boolean {
-    return this.sounds.has(id)
+    return this.players.has(id)
   }
 
   getActiveCount(): number {
-    return this.sounds.size
+    return this.players.size
   }
 
   async preloadCloudSound(id: string): Promise<boolean> {

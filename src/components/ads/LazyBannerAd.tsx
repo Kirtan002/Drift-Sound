@@ -1,7 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react'
 import { View, StyleSheet } from 'react-native'
 import { useFocusEffect } from 'expo-router'
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads'
 import { AD_UNIT_IDS } from '../../constants/ads'
 
 interface LazyBannerAdProps {
@@ -49,6 +48,16 @@ function LazyBannerAdInner({ delayMs = 30000, adUnitId = AD_UNIT_IDS.BANNER }: L
   }, [])
 
   if (phase === 'idle' || phase === 'failed') return null
+
+  let BannerAd: any = null
+  let BannerAdSize: any = null
+  try {
+    const ads = require('react-native-google-mobile-ads')
+    BannerAd = ads.BannerAd
+    BannerAdSize = ads.BannerAdSize
+  } catch {}
+
+  if (!BannerAd) return null
 
   return (
     <View style={styles.wrapper} pointerEvents={phase === 'loading' ? 'none' : 'auto'}>

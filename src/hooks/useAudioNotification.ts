@@ -1,26 +1,34 @@
 import { useEffect, useRef } from 'react'
-import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import { usePlayerStore } from '../store/playerStore'
+
+let Notifications: any = null
+try {
+  Notifications = require('expo-notifications')
+} catch {}
 
 const CHANNEL_ID = 'audio-player'
 const PLAY_PAUSE_ACTION = 'play-pause'
 const STOP_ACTION = 'stop'
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: false,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: false,
-    shouldShowList: false,
-  }),
-})
+if (Notifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: false,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: false,
+      shouldShowList: false,
+    }),
+  })
+}
 
 export function useAudioNotification() {
   const lastNotificationId = useRef<string | null>(null)
 
   useEffect(() => {
+    if (!Notifications) return
+
     async function setup() {
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
@@ -58,6 +66,8 @@ export function usePlayerNotification() {
   const lastNotificationId = useRef<string | null>(null)
 
   useEffect(() => {
+    if (!Notifications) return
+
     const unsub = usePlayerStore.subscribe((state) => {
       const { isPlaying, activeSounds, activeScene } = state
 
@@ -87,7 +97,7 @@ export function usePlayerNotification() {
           } : {}),
         },
         trigger: null,
-      }).then((id) => {
+      }).then((id: string) => {
         lastNotificationId.current = id
       })
     })
@@ -97,7 +107,9 @@ export function usePlayerNotification() {
 }
 
 export function setupNotificationResponseHandler() {
-  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+  if (!Notifications) return { remove: () => {} }
+
+  const sub = Notifications.addNotificationResponseReceivedListener((response: any) => {
     const { actionIdentifier } = response
 
     if (actionIdentifier === PLAY_PAUSE_ACTION) {
