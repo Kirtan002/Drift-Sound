@@ -4,10 +4,10 @@ export const SCENES: Scene[] = [
   {
     id: 'rainy_cabin',
     name: 'Rainy Cabin',
-    description: 'Cozy cabin with rain on the window, crackling fire, and distant thunder',
+    description: 'Cozy cabin with gentle rainfall, forest frogs, and distant thunder',
     sounds: [
-      { soundId: 'rain_window', volume: 0.7 },
-      { soundId: 'campfire', volume: 0.4 },
+      { soundId: 'gentle_rainfall', volume: 0.7 },
+      { soundId: 'forest_frogs', volume: 0.4 },
       { soundId: 'thunder_distant', volume: 0.2 },
     ],
     background: 'cabin_window',
@@ -18,9 +18,9 @@ export const SCENES: Scene[] = [
   {
     id: 'ocean_dock',
     name: 'Ocean Dock',
-    description: 'Gentle ocean waves with soft wind at night',
+    description: 'Calm water with soft wind at night',
     sounds: [
-      { soundId: 'ocean_waves', volume: 0.8 },
+      { soundId: 'calm_water', volume: 0.8 },
       { soundId: 'wind_gentle', volume: 0.3 },
     ],
     background: 'ocean_night',
@@ -44,9 +44,9 @@ export const SCENES: Scene[] = [
   {
     id: 'deep_focus',
     name: 'Deep Focus',
-    description: 'Deep brown noise mixed with delta waves for concentration',
+    description: 'Deep thunderstorm mixed with delta waves for concentration',
     sounds: [
-      { soundId: 'brown_noise', volume: 0.6 },
+      { soundId: 'thunderstorm', volume: 0.6 },
       { soundId: 'delta_waves', volume: 0.4 },
     ],
     background: 'minimal_dark',
@@ -70,9 +70,9 @@ export const SCENES: Scene[] = [
   {
     id: 'pet_relief',
     name: 'Pet Relief',
-    description: 'Deep brown noise with soft rain to calm anxious pets during storms',
+    description: 'Thunderstorm with soft rain to calm anxious pets during storms',
     sounds: [
-      { soundId: 'brown_noise', volume: 0.75 },
+      { soundId: 'thunderstorm', volume: 0.75 },
       { soundId: 'rain_light', volume: 0.3 },
     ],
     background: 'calm_den',
