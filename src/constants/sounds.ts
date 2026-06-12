@@ -1,14 +1,14 @@
 import type { Sound } from '../types/sound'
 
 export const SOUNDS: Sound[] = [
-  { id: 'rain_light', name: 'Light Rain', file: 'rain_light.mp3', category: 'nature', emoji: '🌦️', popular: true },
+  { id: 'rain_light', name: 'Light Rain', file: 'gentle-rainfall.mp3', category: 'nature', emoji: '🌦️', popular: true },
   { id: 'rain_heavy', name: 'Heavy Rain', file: 'rain_heavy.mp3', category: 'nature', emoji: '🌧️', popular: true },
   { id: 'rain_window', name: 'Rain on Window', file: 'rain_window.mp3', category: 'nature', emoji: '🪟', popular: true },
-  { id: 'thunder_distant', name: 'Distant Thunder', file: 'thunder_distant.mp3', category: 'nature', emoji: '⛈️', popular: false },
-  { id: 'ocean_waves', name: 'Ocean Waves', file: 'ocean_waves.mp3', category: 'nature', emoji: '🌊', popular: true },
+  { id: 'thunder_distant', name: 'Distant Thunder', file: 'rain-and-thunder.mp3', category: 'nature', emoji: '⛈️', popular: false },
+  { id: 'ocean_waves', name: 'Ocean Waves', file: 'water-calm.mp3', category: 'nature', emoji: '🌊', popular: true },
   { id: 'ocean_deep', name: 'Deep Ocean', file: 'ocean_deep.mp3', category: 'nature', emoji: '🌌', popular: false },
-  { id: 'forest_morning', name: 'Forest Morning', file: 'forest_morning.mp3', category: 'nature', emoji: '🌲', popular: true },
-  { id: 'forest_night', name: 'Forest Night', file: 'forest_night.mp3', category: 'nature', emoji: '🌙', popular: false },
+  { id: 'forest_morning', name: 'Forest Morning', file: 'soft-wind-with-birds.mp3', category: 'nature', emoji: '🌲', popular: true },
+  { id: 'forest_night', name: 'Forest Night', file: 'forest-with-frogs-and-crickets.mp3', category: 'nature', emoji: '🌙', popular: false },
   { id: 'river_stream', name: 'River Stream', file: 'river_stream.mp3', category: 'nature', emoji: '🏞️', popular: false },
   { id: 'waterfall', name: 'Waterfall', file: 'waterfall.mp3', category: 'nature', emoji: '💧', popular: false },
   { id: 'wind_gentle', name: 'Gentle Wind', file: 'wind_gentle.mp3', category: 'nature', emoji: '🍃', popular: false },

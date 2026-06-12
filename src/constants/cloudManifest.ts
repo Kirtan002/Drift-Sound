@@ -37,4 +37,8 @@ export const CLOUD_MANIFEST: Record<string, CloudSoundEntry> = {
   delta_waves:     { url: `${CLOUD_BASE}/delta_waves.mp3`,     sizeBytes: 0 },
   theta_waves:     { url: `${CLOUD_BASE}/theta_waves.mp3`,     sizeBytes: 0 },
   womb_sounds:     { url: `${CLOUD_BASE}/womb_sounds.mp3`,     sizeBytes: 0 },
+  rain_window:     { url: `${CLOUD_BASE}/rain_window.mp3`,     sizeBytes: 0 },
+  white_noise:     { url: `${CLOUD_BASE}/white_noise.mp3`,     sizeBytes: 0 },
+  brown_noise:     { url: `${CLOUD_BASE}/brown_noise.mp3`,     sizeBytes: 0 },
+  campfire:        { url: `${CLOUD_BASE}/campfire.mp3`,        sizeBytes: 0 },
 }
