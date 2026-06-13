@@ -1,14 +1,15 @@
 import { audioEngine } from './AudioEngine'
-import type { ActiveSound } from '../types/sound'
 
 type FadeCallback = () => void
 
+// All fades are wall-clock based: each tick derives progress from elapsed time
+// instead of incrementing a counter inside an async interval, so slow ticks can
+// never stack or read stale step state. Volume application is synchronous on
+// the engine, so ticks cannot overlap themselves either.
 class FadeSchedulerClass {
   private sleepTimerId: ReturnType<typeof setTimeout> | null = null
   private wakeTimerId: ReturnType<typeof setTimeout> | null = null
   private fadeIntervalId: ReturnType<typeof setInterval> | null = null
-  private onSleepComplete: FadeCallback | null = null
-  private onWakeComplete: FadeCallback | null = null
 
   scheduleSleepFade(
     durationMs: number,
@@ -17,85 +18,64 @@ class FadeSchedulerClass {
   ) {
     this.cancelSleep()
 
-    this.onSleepComplete = onComplete ?? null
+    const fadeMs = Math.max(250, Math.min(fadeOutMs, durationMs))
+    const delayMs = Math.max(0, durationMs - fadeMs)
 
     this.sleepTimerId = setTimeout(() => {
-      this.startFadeOut(fadeOutMs)
-    }, durationMs - fadeOutMs)
-  }
-
-  private async startFadeOut(durationMs: number) {
-    const steps = Math.min(30, Math.max(10, Math.floor(durationMs / 100)))
-    const intervalMs = durationMs / steps
-    let currentStep = 0
-
-    this.fadeIntervalId = setInterval(async () => {
-      currentStep++
-      const t = currentStep / steps
-      const eased = 1 - (1 - t) * (1 - t)
-      const targetVolume = 1 - eased
-
-      try {
-        await audioEngine.setMasterVolume(Math.max(0, targetVolume))
-      } catch {}
-
-      if (currentStep >= steps) {
-        this.cleanupFade()
-        await audioEngine.stopAll()
-        this.onSleepComplete?.()
-      }
-    }, intervalMs)
+      this.startFade(1, 0, fadeMs, () => {
+        onComplete?.()
+      })
+    }, delayMs)
   }
 
   scheduleWakeFade(
     wakeTime: string,
     fadeStartMinutes: number,
-    sounds: ActiveSound[],
     onComplete?: FadeCallback
   ) {
     this.cancelWake()
 
-    this.onWakeComplete = onComplete ?? null
-
     const [hours, minutes] = wakeTime.split(':').map(Number)
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return
+
     const now = new Date()
     const wake = new Date(now)
     wake.setHours(hours, minutes, 0, 0)
-
-    if (wake <= now) {
+    if (wake.getTime() <= now.getTime()) {
       wake.setDate(wake.getDate() + 1)
     }
 
-    const fadeStartMs = wake.getTime() - fadeStartMinutes * 60 * 1000
-    const nowMs = now.getTime()
-    const delayMs = Math.max(0, fadeStartMs - nowMs)
+    const fadeMs = Math.max(1, fadeStartMinutes) * 60 * 1000
+    const delayMs = Math.max(0, wake.getTime() - fadeMs - now.getTime())
 
     this.wakeTimerId = setTimeout(() => {
-      this.startFadeIn(fadeStartMinutes * 60 * 1000)
+      this.startFade(0, 1, fadeMs, () => {
+        onComplete?.()
+      })
     }, delayMs)
   }
 
-  private async startFadeIn(durationMs: number) {
-    const steps = Math.min(40, Math.max(10, Math.floor(durationMs / 100)))
-    const intervalMs = durationMs / steps
-    let currentStep = 0
+  private startFade(
+    from: number,
+    to: number,
+    durationMs: number,
+    onDone?: FadeCallback
+  ) {
+    this.cleanupFade()
 
-    await audioEngine.setMasterVolume(0)
+    const start = Date.now()
+    audioEngine.setFadeFactor(from)
 
-    this.fadeIntervalId = setInterval(async () => {
-      currentStep++
-      const t = currentStep / steps
-      const targetVolume = t * t
+    this.fadeIntervalId = setInterval(() => {
+      const t = Math.min(1, (Date.now() - start) / durationMs)
+      const eased = to > from ? t * t : 1 - (1 - t) * (1 - t)
+      audioEngine.setFadeFactor(from + (to - from) * eased)
 
-      try {
-        await audioEngine.setMasterVolume(Math.min(1, targetVolume))
-      } catch {}
-
-      if (currentStep >= steps) {
+      if (t >= 1) {
         this.cleanupFade()
-        this.onWakeComplete?.()
+        onDone?.()
       }
-    }, intervalMs)
+    }, 200)
   }
 
   private cleanupFade() {
@@ -111,7 +91,6 @@ class FadeSchedulerClass {
       this.sleepTimerId = null
     }
     this.cleanupFade()
-    this.onSleepComplete = null
   }
 
   cancelWake() {
@@ -120,12 +99,12 @@ class FadeSchedulerClass {
       this.wakeTimerId = null
     }
     this.cleanupFade()
-    this.onWakeComplete = null
   }
 
   cancelAll() {
     this.cancelSleep()
     this.cancelWake()
+    audioEngine.resetFadeFactor()
   }
 }
 

@@ -22,6 +22,7 @@ export interface ActiveSound {
   volume: number
   file: string
   url?: string
+  emoji?: string
 }
 
 export interface SceneMix {

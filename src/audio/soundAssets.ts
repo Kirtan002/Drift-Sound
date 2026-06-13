@@ -13,3 +13,8 @@ export const soundAssets: Record<string, number> = {
   'rain-and-thunder.mp3': require('../../assets/sounds/rain-and-thunder.mp3'),
   'forest-with-frogs-and-crickets.mp3': require('../../assets/sounds/forest-with-frogs-and-crickets.mp3'),
 }
+
+export function hasBundledAsset(file: string): boolean {
+  const filename = file.endsWith('.mp3') ? file : file + '.mp3'
+  return filename in soundAssets
+}

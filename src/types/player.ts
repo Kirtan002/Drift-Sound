@@ -19,7 +19,7 @@ export interface PlayerActions {
   removeSound: (id: string) => void
   setVolume: (id: string, volume: number) => void
   setMasterVolume: (volume: number) => void
-  setTimer: (endTime: number | null) => void
+  setTimer: (endTime: number | null, fadeOutMs?: number) => void
   setWakeTime: (time: string | null) => void
   setBreathingGuide: (enabled: boolean) => void
   setActiveScene: (sceneId: string | null) => void
