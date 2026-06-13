@@ -20,7 +20,9 @@ import {
 } from '../src/hooks/useAudioNotification'
 import { registerBackgroundAudio } from '../src/audio/BackgroundTask'
 import { cloudSoundManager } from '../src/audio/CloudSoundManager'
+import { audioEngine } from '../src/audio/AudioEngine'
 import { AnimatedSplash } from '../src/components/player/AnimatedSplash'
+import { PlaybackKeepAwake } from '../src/components/player/PlaybackKeepAwake'
 
 SplashScreen.preventAutoHideAsync()
 

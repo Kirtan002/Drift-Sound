@@ -1,9 +1,13 @@
-import React, { useCallback } from 'react'
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import React, { useCallback, useMemo } from 'react'
+import { View, Text, StyleSheet } from 'react-native'
 import { useTheme } from '../../constants/ThemeContext'
 import { S } from '../../constants/spacing'
 import { usePlayerStore } from '../../store/playerStore'
-import * as Haptics from 'expo-haptics'
+import { SCENE_BY_ID } from '../../constants/scenes'
+import { Equalizer } from '../ui/Equalizer'
+import { Icon } from '../ui/Icon'
+import { PressableScale } from '../ui/PressableScale'
+import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated'
 
 function MiniPlayerInner() {
   const { colors } = useTheme()
@@ -17,58 +21,59 @@ function MiniPlayerInner() {
   const hasAudio = activeSounds.length > 0
 
   const handlePlayPause = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    if (isPlaying) {
-      pause()
-    } else {
-      resume()
-    }
+    if (isPlaying) pause()
+    else resume()
   }, [isPlaying, pause, resume])
 
   const handleStop = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     stop()
   }, [stop])
 
+  const label = useMemo(() => {
+    if (activeScene) return SCENE_BY_ID[activeScene]?.name ?? activeScene
+    if (activeSounds.length === 1) return activeSounds[0].name
+    return `${activeSounds.length} sounds`
+  }, [activeScene, activeSounds])
+
+  const sublabel = useMemo(() => {
+    if (activeScene) return 'Scene'
+    return isPlaying ? 'Playing' : 'Paused'
+  }, [activeScene, isPlaying])
+
   if (!hasAudio) return null
 
-  const label = activeScene ?? `${activeSounds.length} sound${activeSounds.length > 1 ? 's' : ''}`
-
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgCard, borderTopColor: colors.border }]}>
+    <Animated.View
+      entering={FadeInDown.duration(280)}
+      exiting={FadeOutDown.duration(200)}
+      style={[styles.container, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+    >
       <View style={styles.info}>
-        <View style={styles.waveformMini}>
-          {[2, 4, 3, 5, 2].map((h, i) => (
-            <View
-              key={i}
-              style={[
-                styles.waveBar,
-                {
-                  height: h * 4,
-                  backgroundColor: colors.accent,
-                  opacity: isPlaying ? 0.8 : 0.4,
-                },
-              ]}
-            />
-          ))}
+        <View style={[styles.eqWrap, { backgroundColor: colors.accentDim }]}>
+          <Equalizer isPlaying={isPlaying} color={colors.accent} size="sm" barCount={4} />
         </View>
-        <Text style={[styles.label, { color: colors.textPrimary }]} numberOfLines={1}>
-          {label}
-        </Text>
+        <View style={styles.labels}>
+          <Text style={[styles.label, { color: colors.textPrimary }]} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={[styles.sublabel, { color: colors.textMuted }]} numberOfLines={1}>
+            {sublabel}
+          </Text>
+        </View>
       </View>
       <View style={styles.controls}>
-        <Pressable
+        <PressableScale
           onPress={handlePlayPause}
+          scaleTo={0.9}
           style={[styles.playBtn, { backgroundColor: colors.accent }]}
-          hitSlop={8}
         >
-          <Text style={styles.playIcon}>{isPlaying ? '⏸' : '▶️'}</Text>
-        </Pressable>
-        <Pressable onPress={handleStop} style={styles.stopBtn} hitSlop={8}>
-          <Text style={[styles.stopIcon, { color: colors.textMuted }]}>⏹</Text>
-        </Pressable>
+          <Icon name={isPlaying ? 'pause' : 'play'} size={18} color="#fff" />
+        </PressableScale>
+        <PressableScale onPress={handleStop} scaleTo={0.85} style={styles.stopBtn}>
+          <Icon name="stop" size={18} color={colors.textMuted} />
+        </PressableScale>
       </View>
-    </View>
+    </Animated.View>
   )
 }
 
@@ -76,11 +81,14 @@ export const MiniPlayer = React.memo(MiniPlayerInner)
 
 const styles = StyleSheet.create({
   container: {
-    height: 72,
+    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: S.lg,
-    borderTopWidth: 1,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingHorizontal: S.md,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   info: {
     flex: 1,
@@ -88,18 +96,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: S.md,
   },
-  waveformMini: {
-    flexDirection: 'row',
+  eqWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 3,
-    height: 20,
   },
-  waveBar: {
-    width: 3,
-    borderRadius: 1.5,
+  labels: {
+    flex: 1,
+    gap: 2,
   },
   label: {
-    fontSize: 14,
+    fontSize: 15,
+    fontFamily: 'Nunito_700Bold',
+  },
+  sublabel: {
+    fontSize: 12,
     fontFamily: 'Inter_400Regular',
   },
   controls: {
@@ -108,22 +121,17 @@ const styles = StyleSheet.create({
     gap: S.sm,
   },
   playBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  playIcon: {
-    fontSize: 16,
   },
   stopBtn: {
-    width: 30,
-    height: 30,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  stopIcon: {
-    fontSize: 20,
   },
 })

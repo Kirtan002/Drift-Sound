@@ -22,6 +22,11 @@ export const DARK = {
   border:          'rgba(255,255,255,0.07)',
   borderStrong:    'rgba(255,255,255,0.13)',
   overlay:         'rgba(0,0,0,0.6)',
+
+  // Ambient backdrop gradient stops (top glow → base).
+  glowTop:         '#171A2E',
+  glowMid:         '#101019',
+  scrim:           'rgba(12,12,18,0.72)',
 } as const
 
 export const LIGHT = {
@@ -48,6 +53,10 @@ export const LIGHT = {
   border:          'rgba(0,0,0,0.07)',
   borderStrong:    'rgba(0,0,0,0.13)',
   overlay:         'rgba(255,255,255,0.7)',
+
+  glowTop:         '#FFFFFF',
+  glowMid:         '#F0EFEA',
+  scrim:           'rgba(246,245,240,0.72)',
 } as const
 
 export type ThemeColors = typeof DARK

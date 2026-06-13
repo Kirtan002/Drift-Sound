@@ -6,9 +6,10 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  type SharedValue,
+  cancelAnimation,
 } from 'react-native-reanimated'
 import { useTheme } from '../../constants/ThemeContext'
+import { useMotion } from '../../hooks/useMotion'
 
 const BAR_COUNT = 11
 const BAR_SPEEDS = [1200, 900, 1500, 800, 1100, 700, 1300, 950, 1600, 850, 1000]
@@ -22,13 +23,15 @@ interface WaveformBarProps {
   width: number
   isPlaying: boolean
   color: string
+  animate: boolean
 }
 
-function WaveformBar({ speed, width, isPlaying, color }: WaveformBarProps) {
+function WaveformBar({ speed, width, isPlaying, color, animate }: WaveformBarProps) {
   const height = useSharedValue(MIN_HEIGHT)
 
   useEffect(() => {
-    if (isPlaying) {
+    cancelAnimation(height)
+    if (isPlaying && animate) {
       const target = MIN_HEIGHT + Math.random() * (MAX_HEIGHT - MIN_HEIGHT)
       height.value = withRepeat(
         withSequence(
@@ -39,9 +42,9 @@ function WaveformBar({ speed, width, isPlaying, color }: WaveformBarProps) {
         false
       )
     } else {
-      height.value = withTiming(PAUSED_HEIGHT, { duration: 400 })
+      height.value = withTiming(isPlaying ? MIN_HEIGHT * 2 : PAUSED_HEIGHT, { duration: 400 })
     }
-  }, [isPlaying])
+  }, [isPlaying, animate])
 
   const animStyle = useAnimatedStyle(() => ({
     height: height.value,
@@ -66,6 +69,7 @@ interface WaveformAnimProps {
 
 function WaveformAnimInner({ isPlaying }: WaveformAnimProps) {
   const { colors } = useTheme()
+  const { animationsEnabled } = useMotion()
 
   const bars = useMemo(() =>
     Array.from({ length: BAR_COUNT }, (_, i) => (
@@ -75,9 +79,10 @@ function WaveformAnimInner({ isPlaying }: WaveformAnimProps) {
         width={BAR_WIDTHS[i]}
         isPlaying={isPlaying}
         color={colors.accent}
+        animate={animationsEnabled}
       />
     )),
-    [isPlaying, colors.accent]
+    [isPlaying, colors.accent, animationsEnabled]
   )
 
   return (

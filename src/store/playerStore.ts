@@ -128,3 +128,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     set({ activeScene: sceneId })
   },
 }))
+
+// Arm the wake fade-in. Called by the timer screen, which owns the fade-start
+// config, so the scheduler and stored wakeTime never disagree.
+export function scheduleWake(wakeTime: string, fadeStartMinutes: number) {
+  fadeScheduler.scheduleWakeFade(wakeTime, fadeStartMinutes, () => {
+    audioEngine.resetFadeFactor()
+  })
+}
+
+export function cancelWake() {
+  fadeScheduler.cancelWake()
+  audioEngine.resetFadeFactor()
+}

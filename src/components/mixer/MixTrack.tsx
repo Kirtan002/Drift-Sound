@@ -1,10 +1,14 @@
 import React, { useCallback, useMemo } from 'react'
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import { useTheme } from '../../constants/ThemeContext'
 import { VolumeSlider } from './VolumeSlider'
 import { usePlayerStore } from '../../store/playerStore'
+import { SOUND_BY_ID } from '../../constants/sounds'
 import { S, hPad } from '../../constants/spacing'
 import * as Haptics from 'expo-haptics'
+import { Equalizer } from '../ui/Equalizer'
+import { Icon } from '../ui/Icon'
+import { PressableScale } from '../ui/PressableScale'
 import type { ActiveSound } from '../../types/sound'
 
 interface MixTrackProps {
@@ -15,6 +19,14 @@ function MixTrackInner({ sound }: MixTrackProps) {
   const { colors } = useTheme()
   const setVolume = usePlayerStore(s => s.setVolume)
   const removeSound = usePlayerStore(s => s.removeSound)
+  const isPlaying = usePlayerStore(s => s.isPlaying)
+
+  // Emoji resolves from the catalog (or the sound's own emoji) instead of a
+  // brittle name-matched chain.
+  const emoji = useMemo(
+    () => sound.emoji ?? SOUND_BY_ID[sound.id]?.emoji ?? '🎵',
+    [sound.id, sound.emoji]
+  )
 
   const handleVolumeChange = useCallback((vol: number) => {
     setVolume(sound.id, vol)
@@ -26,37 +38,22 @@ function MixTrackInner({ sound }: MixTrackProps) {
   }, [removeSound, sound.id])
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
+    <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
       <View style={styles.topRow}>
         <View style={styles.soundInfo}>
-          <Text style={styles.emoji}>
-            {sound.name === 'Brown Noise' ? '🤎' : sound.name === 'White Noise' ? '📡' : sound.name === 'Pink Noise' ? '🩷' : sound.name === 'Rain Light' ? '🌦️' : sound.name === 'Ocean Waves' ? '🌊' : sound.name === 'Campfire' ? '🔥' : sound.name === 'Forest Morning' ? '🌲' : sound.name === 'Air Conditioner' ? '❄️' : sound.name === 'Coffee Shop' ? '☕' : sound.name === 'Fireplace' ? '🏠' : sound.name === 'Delta Waves' ? '🧠' : '🎵'}
+          <View style={[styles.emojiWrap, { backgroundColor: colors.bgSurface }]}>
+            <Text style={styles.emoji}>{emoji}</Text>
+          </View>
+          <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
+            {sound.name}
           </Text>
-          <Text style={[styles.name, { color: colors.textPrimary }]}>{sound.name}</Text>
+          <Equalizer isPlaying={isPlaying} color={colors.accent} size="sm" barCount={4} style={styles.eq} />
         </View>
-        <Pressable onPress={handleRemove} style={styles.removeBtn} hitSlop={8}>
-          <Text style={[styles.removeIcon, { color: colors.textMuted }]}>✕</Text>
-        </Pressable>
+        <PressableScale onPress={handleRemove} scaleTo={0.85} style={styles.removeBtn}>
+          <Icon name="close" size={16} color={colors.textMuted} />
+        </PressableScale>
       </View>
-      <VolumeSlider
-        value={sound.volume}
-        onValueChange={handleVolumeChange}
-      />
-      <View style={styles.waveformMini}>
-        {[3, 5, 4, 7, 3].map((h, i) => (
-          <View
-            key={i}
-            style={[
-              styles.waveBar,
-              {
-                height: h * 3,
-                backgroundColor: colors.accent,
-                opacity: 0.4 + h * 0.08,
-              },
-            ]}
-          />
-        ))}
-      </View>
+      <VolumeSlider value={sound.volume} onValueChange={handleVolumeChange} />
     </View>
   )
 }
@@ -65,11 +62,12 @@ export const MixTrack = React.memo(MixTrackInner)
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: S.lg,
-    marginBottom: 10,
+    marginBottom: 12,
     marginHorizontal: hPad,
     gap: S.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   topRow: {
     flexDirection: 'row',
@@ -80,33 +78,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: S.sm,
+    flex: 1,
   },
-  emoji: {
-    fontSize: 20,
-  },
-  name: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-  },
-  removeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  emojiWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  removeIcon: {
-    fontSize: 14,
-    fontWeight: '600',
+  emoji: {
+    fontSize: 18,
   },
-  waveformMini: {
-    flexDirection: 'row',
+  name: {
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+    flexShrink: 1,
+  },
+  eq: {
+    marginLeft: 'auto',
+    marginRight: S.sm,
+  },
+  removeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 3,
-    height: 24,
-  },
-  waveBar: {
-    width: 3,
-    borderRadius: 1.5,
   },
 })

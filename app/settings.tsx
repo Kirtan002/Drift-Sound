@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import { audioEngine } from '../src/audio/AudioEngine'
+import { mixPlayer } from '../src/audio/MixPlayer'
 import { VolumeSlider } from '../src/components/mixer/VolumeSlider'
 import { usePurchases } from '../src/hooks/usePurchases'
 
@@ -172,6 +173,7 @@ function SettingsScreenInner() {
   }, [prefs])
 
   const handleReinitialize = useCallback(async () => {
+    await mixPlayer.reinitialize()
     await audioEngine.initialize()
     Alert.alert('Done', 'Audio engine re-initialized')
   }, [])

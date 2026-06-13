@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react'
-import { ScrollView, Pressable, Text, StyleSheet } from 'react-native'
+import { ScrollView, Text, StyleSheet } from 'react-native'
 import { useTheme } from '../../constants/ThemeContext'
 import { hPad } from '../../constants/spacing'
 import { CATEGORIES } from '../../constants/sounds'
-import * as Haptics from 'expo-haptics'
+import { PressableScale } from '../ui/PressableScale'
 
 interface CategoryTabsProps {
   active: string
@@ -14,7 +14,6 @@ function CategoryTabsInner({ active, onSelect }: CategoryTabsProps) {
   const { colors } = useTheme()
 
   const handleSelect = useCallback((id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     onSelect(id)
   }, [onSelect])
 
@@ -27,15 +26,15 @@ function CategoryTabsInner({ active, onSelect }: CategoryTabsProps) {
       {CATEGORIES.map((cat) => {
         const isActive = cat.id === active
         return (
-          <Pressable
+          <PressableScale
             key={cat.id}
             onPress={() => handleSelect(cat.id)}
+            scaleTo={0.94}
             style={[
               styles.pill,
               {
-                backgroundColor: isActive ? colors.accent : 'transparent',
+                backgroundColor: isActive ? colors.accent : colors.bgCard,
                 borderColor: isActive ? colors.accent : colors.border,
-                borderWidth: 1,
               },
             ]}
           >
@@ -47,7 +46,7 @@ function CategoryTabsInner({ active, onSelect }: CategoryTabsProps) {
             >
               {cat.label}
             </Text>
-          </Pressable>
+          </PressableScale>
         )
       })}
     </ScrollView>
@@ -63,8 +62,9 @@ const styles = StyleSheet.create({
   },
   pill: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   label: {
     fontSize: 13,

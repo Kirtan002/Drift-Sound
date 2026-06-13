@@ -1,30 +1,25 @@
 import React, { useState, useMemo, useCallback } from 'react'
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Dimensions,
-} from 'react-native'
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '../../src/constants/ThemeContext'
 import { usePlayerStore } from '../../src/store/playerStore'
-import { SOUNDS, POPULAR_IDS } from '../../src/constants/sounds'
+import { SOUNDS, POPULAR_IDS, SOUND_BY_ID } from '../../src/constants/sounds'
 import { SCENES } from '../../src/constants/scenes'
-import { S, hPad } from '../../src/constants/spacing'
+import { S, hPad, gridGap } from '../../src/constants/spacing'
 import { type } from '../../src/constants/typography'
 import { SceneCard } from '../../src/components/sounds/SceneCard'
 import { SoundCard } from '../../src/components/sounds/SoundCard'
 import { HeroPlayer } from '../../src/components/player/HeroPlayer'
 import { MiniPlayer } from '../../src/components/player/MiniPlayer'
 import { NightShield } from '../../src/components/player/NightShield'
+import { ScreenBackground } from '../../src/components/ui/ScreenBackground'
 import { ThemeIcon } from '../../src/components/ui/ThemeIcon'
 import { IconButton } from '../../src/components/ui/IconButton'
+import { Icon } from '../../src/components/ui/Icon'
 import { LazyBannerAd } from '../../src/components/ads/LazyBannerAd'
 import { BottomSheet } from '../../src/components/ui/BottomSheet'
-import { Typography } from '../../src/components/ui/Typography'
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated'
+import { PressableScale } from '../../src/components/ui/PressableScale'
+import Animated, { FadeIn } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { router } from 'expo-router'
 import { useSceneUnlock } from '../../src/hooks/useRewardedAd'
@@ -33,17 +28,15 @@ import type { Scene, Sound } from '../../src/types/sound'
 
 function getGreeting(): { title: string; subtitle: string } {
   const h = new Date().getHours()
-  if (h >= 21 || h < 6) return { title: 'Ready to drift?', subtitle: 'Choose a scene or pick your sounds' }
-  if (h < 12) return { title: 'Good morning', subtitle: 'Choose a scene or pick your sounds' }
-  if (h < 18) return { title: 'Focus or rest?', subtitle: 'Choose a scene or pick your sounds' }
-  return { title: 'Wind down time', subtitle: 'Choose a scene or pick your sounds' }
+  if (h >= 21 || h < 6) return { title: 'Ready to drift?', subtitle: 'Pick a scene or build your own mix' }
+  if (h < 12) return { title: 'Good morning', subtitle: 'Ease into the day with sound' }
+  if (h < 18) return { title: 'Focus or rest?', subtitle: 'Set the mood for the afternoon' }
+  return { title: 'Wind down', subtitle: 'Let the evening settle in' }
 }
 
 function HomeScreenInner() {
   const { colors } = useTheme()
-  const isPlaying = usePlayerStore(s => s.isPlaying)
   const activeSounds = usePlayerStore(s => s.activeSounds)
-  const activeScene = usePlayerStore(s => s.activeScene)
   const addSound = usePlayerStore(s => s.addSound)
   const play = usePlayerStore(s => s.play)
   const setActiveScene = usePlayerStore(s => s.setActiveScene)
@@ -56,7 +49,6 @@ function HomeScreenInner() {
   const { purchaseUnlock } = usePurchases()
 
   const hasAudio = activeSounds.length > 0
-
   const greeting = useMemo(() => getGreeting(), [])
 
   const quickSounds = useMemo(
@@ -65,9 +57,9 @@ function HomeScreenInner() {
   )
 
   const timerLabel = useMemo(() => {
-    if (!timerEndTime) return '∞'
+    if (!timerEndTime) return null
     const remaining = Math.max(0, Math.floor((timerEndTime - Date.now()) / 60000))
-    if (remaining <= 0) return '∞'
+    if (remaining <= 0) return null
     return `${remaining}m`
   }, [timerEndTime])
 
@@ -80,58 +72,33 @@ function HomeScreenInner() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     const sounds = scene.sounds.map(s => {
-      const soundDef = SOUNDS.find(sd => sd.id === s.soundId)
+      const def = SOUND_BY_ID[s.soundId]
       return {
         id: s.soundId,
-        name: soundDef?.name ?? s.soundId,
+        name: def?.name ?? s.soundId,
         volume: s.volume,
-        file: soundDef?.file ?? `${s.soundId}.mp3`,
+        file: def?.file ?? `${s.soundId}.mp3`,
+        emoji: def?.emoji,
       }
     })
-    setActiveScene(scene.id)
+    setActiveScene(scene.name)
     play(sounds)
   }, [play, setActiveScene, premiumUnlocked])
 
   const handleQuickSound = useCallback((sound: Sound) => {
     if (hasAudio) {
-      addSound({ id: sound.id, name: sound.name, volume: 0.6, file: sound.file })
+      addSound({ id: sound.id, name: sound.name, volume: 0.6, file: sound.file, url: sound.url, emoji: sound.emoji })
     } else {
       setActiveScene(null)
-      play([{ id: sound.id, name: sound.name, volume: 1, file: sound.file }])
+      play([{ id: sound.id, name: sound.name, volume: 0.8, file: sound.file, url: sound.url, emoji: sound.emoji }])
     }
   }, [hasAudio, addSound, play, setActiveScene])
 
-  const sceneCards = useMemo(
-    () => SCENES.map(scene => (
-      <SceneCard key={scene.id} scene={scene} onPress={handleScenePress} />
-    )),
-    [handleScenePress]
-  )
-
-  const quickSoundCards = useMemo(
-    () => quickSounds.map(sound => (
-      <SoundCard key={sound.id} sound={sound} onPress={handleQuickSound} />
-    )),
-    [quickSounds, handleQuickSound]
-  )
-
   const handleShuffle = useCallback(() => {
-    const freeScenes = SCENES.filter(s => !s.locked)
-    const random = freeScenes[Math.floor(Math.random() * freeScenes.length)]
+    const free = SCENES.filter(s => !s.locked)
+    const random = free[Math.floor(Math.random() * free.length)]
     if (random) handleScenePress(random)
   }, [handleScenePress])
-
-  const handleOpenMixer = useCallback(() => {
-    router.push('/(tabs)/mixer')
-  }, [])
-
-  const handleOpenSettings = useCallback(() => {
-    router.push('/settings')
-  }, [])
-
-  const handleOpenTimer = useCallback(() => {
-    router.push('/(tabs)/timer')
-  }, [])
 
   const handleWatchAd = useCallback(() => {
     watchAd()
@@ -148,109 +115,107 @@ function HomeScreenInner() {
     setLockedScene(null)
   }, [])
 
-  const handleNightShield = useCallback(() => {
-    setNightShield(true)
-  }, [])
-
-  const handleNightShieldDismiss = useCallback(() => {
-    setNightShield(false)
-  }, [])
+  const header = (
+    <View style={[styles.header, { paddingHorizontal: hPad }]}>
+      <View style={styles.brandRow}>
+        <View style={[styles.brandMark, { backgroundColor: colors.accentDim }]}>
+          <Icon name="moon" size={18} color={colors.accent} />
+        </View>
+        <Text style={[type.headingM, { color: colors.textPrimary }]}>Drift Sound</Text>
+      </View>
+      <View style={styles.headerRight}>
+        <ThemeIcon />
+        <IconButton icon="settings" onPress={() => router.push('/settings')} />
+      </View>
+    </View>
+  )
 
   if (hasAudio) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-        <View style={[styles.header, { paddingHorizontal: hPad }]}>
-          <Text style={[type.headingM, { color: colors.textPrimary }]}>Drift Sound</Text>
-          <View style={styles.headerRight}>
-            <ThemeIcon />
-            <IconButton icon="⚙️" size={22} onPress={handleOpenSettings} />
+      <ScreenBackground>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          {header}
+          <Animated.View entering={FadeIn.duration(400)} style={styles.heroArea}>
+            <HeroPlayer />
+          </Animated.View>
+          <View style={[styles.controlRow, { paddingHorizontal: hPad }]}>
+            <IconButton icon="shuffle" onPress={handleShuffle} variant="soft" />
+            <PressableScale
+              onPress={() => router.push('/(tabs)/timer')}
+              style={[styles.timerBadge, { backgroundColor: colors.accentDim }]}
+            >
+              <Icon name="timer" size={16} color={colors.accent} />
+              <Text style={[styles.timerLabel, { color: colors.accent }]}>{timerLabel ?? 'Timer'}</Text>
+            </PressableScale>
+            <IconButton icon="sliders" onPress={() => router.push('/(tabs)/mixer')} variant="soft" />
+            <IconButton icon="moon" onPress={() => setNightShield(true)} variant="soft" />
           </View>
-        </View>
-        <Animated.View entering={FadeIn.duration(400)} style={styles.heroArea}>
-          <HeroPlayer />
-        </Animated.View>
-        <View style={[styles.controlRow, { paddingHorizontal: hPad }]}>
-          <IconButton icon="🔀" size={22} onPress={handleShuffle} />
-          <Pressable onPress={handleOpenTimer} style={[styles.timerBadge, { backgroundColor: colors.accentDim }]}>
-            <Text style={[styles.timerLabel, { color: colors.accent }]}>{timerLabel}</Text>
-          </Pressable>
-          <IconButton icon="🎚️" size={22} onPress={handleOpenMixer} />
-          <IconButton icon="🌙" size={22} onPress={handleNightShield} />
-        </View>
-        <MiniPlayer />
-        <LazyBannerAd />
-        {nightShield && (
-          <NightShield onDismiss={handleNightShieldDismiss} />
-        )}
-      </SafeAreaView>
+          <MiniPlayer />
+          <LazyBannerAd />
+        </SafeAreaView>
+        {nightShield && <NightShield onDismiss={() => setNightShield(false)} />}
+      </ScreenBackground>
     )
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={[styles.header, { paddingHorizontal: hPad }]}>
-        <Text style={[type.headingM, { color: colors.textPrimary }]}>Drift Sound</Text>
-        <View style={styles.headerRight}>
-          <ThemeIcon />
-          <IconButton icon="⚙️" size={22} onPress={handleOpenSettings} />
-        </View>
-      </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={[styles.greetingSection, { paddingHorizontal: hPad }]}>
-          <Text style={[type.headingL, { color: colors.textPrimary }]}>{greeting.title}</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{greeting.subtitle}</Text>
-        </View>
-        <View style={[styles.section, { paddingHorizontal: hPad }]}>
-          <Text style={[type.label, { color: colors.textMuted, letterSpacing: 1.5 }]}>SCENES</Text>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.scenesScroll, { paddingLeft: hPad }]}
-        >
-          {sceneCards}
+    <ScreenBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {header}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <View style={[styles.greetingSection, { paddingHorizontal: hPad }]}>
+            <Text style={[type.headingL, { color: colors.textPrimary }]}>{greeting.title}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{greeting.subtitle}</Text>
+          </View>
+
+          <View style={[styles.sectionHead, { paddingHorizontal: hPad }]}>
+            <Text style={[type.label, { color: colors.textMuted, letterSpacing: 1.5 }]}>SCENES</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.scenesScroll, { paddingLeft: hPad }]}
+          >
+            {SCENES.map(scene => (
+              <SceneCard key={scene.id} scene={scene} onPress={handleScenePress} unlocked={premiumUnlocked} />
+            ))}
+          </ScrollView>
+
+          <View style={[styles.sectionHead, { paddingHorizontal: hPad, marginTop: S.xxxl }]}>
+            <Text style={[type.label, { color: colors.textMuted, letterSpacing: 1.5 }]}>QUICK PLAY</Text>
+          </View>
+          <View style={[styles.quickGrid, { paddingHorizontal: hPad }]}>
+            {quickSounds.map(sound => (
+              <SoundCard key={sound.id} sound={sound} onPress={handleQuickSound} />
+            ))}
+          </View>
+          <View style={styles.spacer} />
         </ScrollView>
-        <View style={[styles.section, { paddingHorizontal: hPad, marginTop: S.xxxl }]}>
-          <Text style={[type.label, { color: colors.textMuted, letterSpacing: 1.5 }]}>QUICK PLAY</Text>
-        </View>
-        <View style={[styles.quickGrid, { paddingHorizontal: hPad }]}>
-          {quickSoundCards}
-        </View>
-        <View style={styles.spacer} />
-      </ScrollView>
-      <MiniPlayer />
-      <LazyBannerAd />
+        <LazyBannerAd />
+      </SafeAreaView>
+
       {lockedScene && (
-        <BottomSheet visible={unlockSheetVisible} onClose={handleCloseUnlock} title="Unlock Scene">
+        <BottomSheet visible={unlockSheetVisible} onClose={handleCloseUnlock} title="Unlock this scene">
           <View style={styles.unlockContent}>
             <Text style={styles.unlockEmoji}>{lockedScene.emoji}</Text>
-            <Typography variant="T4" color={colors.textPrimary}>{lockedScene.name}</Typography>
-            <Text style={[styles.unlockDesc, { color: colors.textSecondary }]}>
-              {lockedScene.description}
-            </Text>
-            <Pressable
-              onPress={handleWatchAd}
-              style={[styles.unlockBtn, { backgroundColor: colors.accent }]}
-            >
-              <Text style={styles.unlockBtnLabel}>
-                {isAdLoaded ? 'Watch ad to unlock' : 'Loading ad...'}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={handlePurchaseAll}
-              style={[styles.unlockBtn, { backgroundColor: colors.amber }]}
-            >
-              <Text style={[styles.unlockBtnLabel, { color: '#1A1A22' }]}>
-                Unlock all scenes — $2.99
-              </Text>
-            </Pressable>
+            <Text style={[type.headingM, { color: colors.textPrimary }]}>{lockedScene.name}</Text>
+            <Text style={[styles.unlockDesc, { color: colors.textSecondary }]}>{lockedScene.description}</Text>
+
+            <PressableScale onPress={handleWatchAd} style={[styles.unlockBtn, { backgroundColor: colors.accent }]}>
+              <Icon name="play" size={16} color="#fff" />
+              <Text style={styles.unlockBtnLabel}>{isAdLoaded ? 'Watch ad to unlock' : 'Loading ad…'}</Text>
+            </PressableScale>
+            <PressableScale onPress={handlePurchaseAll} style={[styles.unlockBtn, { backgroundColor: colors.amber }]}>
+              <Icon name="sparkles" size={16} color="#1A1A22" />
+              <Text style={[styles.unlockBtnLabel, { color: '#1A1A22' }]}>Unlock all — $2.99</Text>
+            </PressableScale>
             <Pressable onPress={handleCloseUnlock} style={styles.unlockCancel}>
               <Text style={[styles.unlockCancelText, { color: colors.textMuted }]}>Not now</Text>
             </Pressable>
           </View>
         </BottomSheet>
       )}
-    </SafeAreaView>
+    </ScreenBackground>
   )
 }
 
@@ -258,12 +223,25 @@ export default React.memo(HomeScreenInner)
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scroll: { paddingBottom: S.xl },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: S.lg,
+    paddingTop: S.sm,
     paddingBottom: S.sm,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+  },
+  brandMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerRight: {
     flexDirection: 'row',
@@ -271,15 +249,15 @@ const styles = StyleSheet.create({
     gap: S.xs,
   },
   greetingSection: {
-    paddingTop: S.xxl,
-    paddingBottom: S.xxl,
-    gap: S.sm,
+    paddingTop: S.xl,
+    paddingBottom: S.xl,
+    gap: 6,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter_400Regular',
   },
-  section: {
+  sectionHead: {
     paddingBottom: S.md,
   },
   scenesScroll: {
@@ -289,7 +267,7 @@ const styles = StyleSheet.create({
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: gridGap,
   },
   heroArea: {
     flex: 1,
@@ -298,52 +276,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: S.lg,
-    paddingBottom: S.section,
+    paddingVertical: S.md,
   },
   timerBadge: {
-    paddingHorizontal: S.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: S.lg,
     paddingVertical: S.sm,
-    borderRadius: 20,
+    borderRadius: 22,
   },
   timerLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Nunito_700Bold',
   },
+  spacer: { height: 80 },
   unlockContent: {
     alignItems: 'center',
-    gap: S.lg,
-    paddingTop: S.md,
+    gap: S.md,
+    paddingTop: S.sm,
   },
-  unlockEmoji: {
-    fontSize: 48,
-  },
+  unlockEmoji: { fontSize: 52 },
   unlockDesc: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
+    paddingHorizontal: S.md,
   },
   unlockBtn: {
+    flexDirection: 'row',
     width: '100%',
-    height: 50,
-    borderRadius: 14,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: S.sm,
+    marginTop: S.xs,
   },
   unlockBtnLabel: {
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: 'Nunito_700Bold',
   },
-  unlockCancel: {
-    paddingVertical: S.sm,
-  },
+  unlockCancel: { paddingVertical: S.sm },
   unlockCancelText: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-  },
-  spacer: {
-    height: 100,
   },
 })

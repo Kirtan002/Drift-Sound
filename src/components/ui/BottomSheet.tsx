@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect } from 'react'
+import React, { useMemo, useCallback, useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native'
 import { useTheme } from '../../constants/ThemeContext'
 import Animated, {
@@ -9,10 +9,11 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { S } from '../../constants/spacing'
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window')
-const SHEET_HEIGHT = 400
+const SHEET_MAX = SCREEN_HEIGHT * 0.9
 
 interface BottomSheetProps {
   visible: boolean
@@ -23,8 +24,11 @@ interface BottomSheetProps {
 
 function BottomSheetInner({ visible, onClose, title, children }: BottomSheetProps) {
   const { colors } = useTheme()
-  const translateY = useSharedValue(SHEET_HEIGHT)
+  const insets = useSafeAreaInsets()
+  const translateY = useSharedValue(SHEET_MAX)
   const backdropOpacity = useSharedValue(0)
+  // Mount state is React-driven (never read a shared value during render).
+  const [mounted, setMounted] = useState(visible)
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -34,58 +38,73 @@ function BottomSheetInner({ visible, onClose, title, children }: BottomSheetProp
     opacity: backdropOpacity.value,
   }))
 
-  const animateOut = useCallback(() => {
-    translateY.value = withTiming(SHEET_HEIGHT, { duration: 250 })
-    backdropOpacity.value = withTiming(0, { duration: 250 }, () => {
-      runOnJS(onClose)()
-    })
-  }, [onClose, translateY, backdropOpacity])
-
-  const animateIn = useCallback(() => {
-    translateY.value = withSpring(0, { damping: 20, stiffness: 200 })
-    backdropOpacity.value = withTiming(1, { duration: 300 })
-  }, [translateY, backdropOpacity])
+  const handleUnmount = useCallback(() => {
+    setMounted(false)
+    onClose()
+  }, [onClose])
 
   useEffect(() => {
     if (visible) {
-      animateIn()
-    } else {
-      translateY.value = withTiming(SHEET_HEIGHT, { duration: 250 })
-      backdropOpacity.value = withTiming(0, { duration: 250 })
+      setMounted(true)
+      translateY.value = withSpring(0, { damping: 22, stiffness: 220 })
+      backdropOpacity.value = withTiming(1, { duration: 250 })
+    } else if (mounted) {
+      translateY.value = withTiming(SHEET_MAX, { duration: 240 })
+      backdropOpacity.value = withTiming(0, { duration: 240 }, (finished) => {
+        if (finished) runOnJS(setMounted)(false)
+      })
     }
   }, [visible])
 
-  const gest = useMemo(() => Gesture.Pan()
-    .onUpdate((e) => {
-      if (e.translationY > 0) {
-        translateY.value = e.translationY
-      }
+  const animateOut = useCallback(() => {
+    translateY.value = withTiming(SHEET_MAX, { duration: 240 })
+    backdropOpacity.value = withTiming(0, { duration: 240 }, (finished) => {
+      if (finished) runOnJS(handleUnmount)()
     })
-    .onEnd((e) => {
-      if (e.translationY > 100) {
-        runOnJS(animateOut)()
-      } else {
-        translateY.value = withSpring(0, { damping: 20, stiffness: 200 })
-      }
-    }), [translateY, animateOut])
+  }, [handleUnmount, translateY, backdropOpacity])
+
+  const gesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onUpdate((e) => {
+          translateY.value = Math.max(0, e.translationY)
+        })
+        .onEnd((e) => {
+          if (e.translationY > 120 || e.velocityY > 800) {
+            runOnJS(animateOut)()
+          } else {
+            translateY.value = withSpring(0, { damping: 22, stiffness: 220 })
+          }
+        }),
+    [translateY, animateOut]
+  )
 
   const handleBackdropPress = useCallback(() => {
     animateOut()
   }, [animateOut])
 
-  if (!visible && translateY.value === SHEET_HEIGHT) return null
+  if (!mounted) return null
 
   return (
     <View style={styles.overlay}>
       <Animated.View style={[styles.backdrop, { backgroundColor: colors.overlay }, backdropStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleBackdropPress} />
       </Animated.View>
-      <GestureDetector gesture={gest}>
-        <Animated.View style={[styles.sheet, { backgroundColor: colors.bgSurface }, sheetStyle]}>
-          <View style={[styles.handle, { backgroundColor: colors.textMuted }]} />
-          {title && (
-            <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-          )}
+      <GestureDetector gesture={gesture}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.bgSurface,
+              borderColor: colors.border,
+              paddingBottom: insets.bottom + S.xl,
+              maxHeight: SHEET_MAX,
+            },
+            sheetStyle,
+          ]}
+        >
+          <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
+          {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
           <View style={styles.content}>{children}</View>
         </Animated.View>
       </GestureDetector>
@@ -108,25 +127,25 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: SHEET_HEIGHT,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: S.lg,
     paddingTop: S.md,
   },
   handle: {
-    width: 36,
+    width: 40,
     height: 4,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: S.lg,
   },
   title: {
-    fontSize: 18,
-    fontFamily: 'Nunito_600SemiBold',
+    fontSize: 19,
+    fontFamily: 'Nunito_700Bold',
     marginBottom: S.lg,
   },
-  content: {
-    flex: 1,
-  },
+  content: {},
 })
